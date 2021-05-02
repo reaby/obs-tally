@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tally</title>
+</head>
+
+<body>
+    <video id="local" autoplay="autoplay" />
+    <video id="remote" autoplay="autoplay" />
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        let socket = io({ secure: true });
+    </script>
+    <script src="/scripts/webrtc_socketio.js"></script>
+    <script>
+        rtc.createStream({ "video": true, "audio": true }, function (stream) {
+            document.getElementById("local").srcObject = stream;
+        });
+
+        /*rtc.on('add remote stream', function (stream) {
+          // show the remote video
+          rtc.attachStream(stream, 'remote');
+        });*/
+    </script>
+</body>
+
+</html>

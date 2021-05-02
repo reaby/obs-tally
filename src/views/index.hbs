@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tally</title>
+    <link rel="stylesheet" href="stylesheets/style.css" />
+    <style>
+        body {
+            background: none;
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+        }
+
+        .box {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="box">
+        <div id="sceneselect">
+        </div>
+    </div>
+    <video id="remote" autoplay="autoplay" />
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        let socket = io({ secure: true });
+        //Test browser support
+        const SUPPORTS_MEDIA_DEVICES = 'mediaDevices' in navigator;
+        let torch = false;
+        let track = null;
+        let listenScene = null;
+        let currentScene = null;
+        let torchEnabled = false;
+        try {
+            if (SUPPORTS_MEDIA_DEVICES) {
+                //Get the environment camera (usually the second one)
+                navigator.mediaDevices.enumerateDevices().then(devices => {
+                    const cameras = devices.filter((device) => device.kind === 'videoinput');
+                    if (cameras.length === 0) {
+                        throw 'No camera found on this device.';
+                    }
+                    const camera = cameras[cameras.length - 1];
+
+                    // Create stream and get video track
+                    navigator.mediaDevices.getUserMedia({
+                        video: {
+                            deviceId: camera.deviceId,
+                            facingMode: ['environment'],
+                            height: { ideal: 720 },
+                            width: { ideal: 1280 }
+                        }
+                    }).then(stream => {
+                        track = stream.getVideoTracks()[0];
+
+                        //Create image capture object and get camera capabilities
+                        try {
+                            const imageCapture = new ImageCapture(track);
+                            const photoCapabilities = imageCapture.getPhotoCapabilities().then(() => {
+                                torchEnabled = true;
+                            }).catch(reason => {
+                                alert("Can't enable light:" + reason);
+                                torchEnabled = false;
+                            });
+
+                        } catch (e) {
+                            alert("Can't enable light.");
+                            torchEnabled = false;
+                        }
+                    });
+                });
+            } else {
+                alert("Your device not support camera!");
+            }
+        } catch (e) {
+            alert(e);
+        }
+
+        socket.on("scenes", (scenes, current) => {
+            let out = "<h1>Select your camera</h1>";
+            for (let scene of scenes) {
+                out += `<button class="btn btn-primary my-1" onclick="setListenScene('${scene.name}');">${scene.name}</button><br>`;
+            }
+            document.querySelector("#sceneselect").innerHTML = out;
+            currentScene = current;
+        });
+
+        socket.on("SwitchScene", (data) => {
+            currentScene = data;
+            onSwitch(data);
+        });
+
+        socket.on("connect", () => {
+
+            // rtc.fire("ready");
+        });
+
+        /* rtc.on('add remote stream', function (stream) {
+            // show the remote video
+            rtc.attachStream(stream, 'remote');
+        }); */
+
+        function onSwitch(data) {
+            let scene = document.querySelector("#sceneselect");
+            let body = document.querySelector("html");
+            if (data === listenScene) {
+                if (torchEnabled) {
+                    track.applyConstraints({
+                        advanced: [{ torch: true }]
+                    });
+                }
+                scene.style.color = "white";
+                scene.innerHTML = `<h1><strong>ON AIR</strong></h1>`;
+                body.style.backgroundColor = "red";
+            } else {
+                if (torchEnabled) {
+                    track.applyConstraints({
+                        advanced: [{ torch: false }]
+                    });
+                }
+                scene.style.color = "white";
+                scene.style.fontWeight = 400;
+                body.style.backgroundColor = "black";
+                scene.innerHTML = `<h1>${data}</h1>`;
+            }
+        }
+
+        function setListenScene(name) {
+            listenScene = name;
+            document.querySelector("#sceneselect").innerHTML = "";
+            onSwitch(currentScene);
+        }
+    </script>
+</body>
+
+</html>
